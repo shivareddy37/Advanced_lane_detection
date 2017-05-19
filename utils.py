@@ -2,6 +2,7 @@
 import cv2
 import numpy as np
 import glob
+import matplotlib.pyplot as plt
 
 # constants
 
@@ -101,42 +102,122 @@ def get_prespective(image, unwrapped = False):
     return M
 
 
-def abs_sobel_thresh(gray, orient='x', sobel_kernel=3, thresh=(0, 255)):
-    # Calculate directional gradient
+def abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(0, 255)):
+  # grayscale image
+  red = img[:, :, 0]
 
-    # 1) Take the derivative in x or y given orient = 'x' or 'y'
-    if orient == 'x':
-        sobel = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    else:
-        sobel = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
-    # 2) Take the absolute value of the derivative or gradient
-    abs_sobel = np.absolute(sobel)
-    # 3) Scale to 8-bit (0 - 255) then convert to type = np.uint8
-    scaled_sobel = np.uint8(255 * abs_sobel / np.max(abs_sobel))
-    # 4) Create a mask of 1's where the scaled gradient magnitude
-    # is > thresh_min and < thresh_max
-    sxbinary = np.zeros_like(scaled_sobel)
-    sxbinary[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
-    # 5) Return this mask as your binary_output image
-    return sxbinary
+  # find abs sobel thresh
+  if orient == 'x':
+    sobel = cv2.Sobel(red, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+  else:
+    sobel = cv2.Sobel(red, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
-# Define a function that thresholds the S-channel of HLS
-# Use exclusive lower bound (>) and inclusive upper (<=)
+  #get abs value
+  abs_sobel = np.absolute(sobel)
+  scaled = np.uint8(255*abs_sobel/np.max(abs_sobel))
+
+  grad_binary = np.zeros_like(scaled)
+  grad_binary[(scaled >= thresh[0]) & (scaled <= thresh[1])] = 1
+  return grad_binary
+
+
+'''
+calculate magnitude of gradient given an image and threshold
+'''
+def mag_thresh(img, sobel_kernel=3, mag_thresh=(0, 255)):
+  # gray scale
+  red = img[:, :, 0]
+  gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+  # given the magnitude of threshold for the combined two, return
+  abs_x = np.absolute(cv2.Sobel(red, cv2.CV_64F, 1, 0, ksize=sobel_kernel))
+  abs_y = np.absolute(cv2.Sobel(red, cv2.CV_64F, 0, 1, ksize=sobel_kernel))
+
+  mag = np.sqrt(abs_x ** 2 + abs_y ** 2)
+  scaled = (255*mag/np.max(mag))
+
+  binary_output = np.zeros_like(scaled)
+  binary_output[(scaled >= mag_thresh[0]) & (scaled <= mag_thresh[1])] = 1
+  return binary_output
+
+'''
+calculate direction of gradient given image and thresh
+'''
+def dir_thresh(img, sobel_kernel=3, thresh=(0, np.pi/2)):
+  # red = img[:, :, 0]
+
+  gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+  # given the magnitude of threshold for the combined two, return
+  abs_x = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel))
+  abs_y = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel))
+
+  sobel_dir = np.arctan2(abs_y, abs_x)
+
+  binary_output = np.zeros_like(sobel_dir)
+  binary_output[(sobel_dir >= thresh[0]) & (sobel_dir <= thresh[1])] = 1
+  return binary_output
+
+'''
+calculate the threshold of the hls values
+'''
+def hls_thresh(img, thresh=(0, 255)):
+  hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+
+  s_channel = hls[:, :, 2]
+
+  binary_output = np.zeros_like(s_channel)
+  binary_output[(s_channel > thresh[0]) & (s_channel <= thresh[1])] = 1
+
+  return binary_output
+
+'''
+get v channel from hsv
+'''
+def hsv_thresh(img, thresh=(0, 255)):
+  hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+  v_channel = hsv[:, :, 2]
+
+  binary_output = np.zeros_like(v_channel)
+  binary_output[(v_channel > thresh[0]) & (v_channel <= thresh[1])] = 1
+
+  return binary_output
+
+
+def find_white_lane(img, thresh= (0,255)):
+    xyz = cv2.cvtColor(img,cv2.COLOR_BGR2XYZ)
+    z_channel = xyz[:,:,2]
+    binary_output = np.zeros_like(z_channel)
+    binary_output[(z_channel > thresh[0]) & (z_channel <= thresh[1])] = 1
+    return binary_output
+
+
 def image_threshold(img):
-    hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-    s_channel = hls[:,:,2]
-    l_channel = hls[:,:,1]
-    light_mask = np.zeros_like(l_channel)
-    light_mask[(s_channel >= 5) & (l_channel >= 150)] = 1
-    ksize = 3  # Choose a larger odd number to smooth gradient measurements
+    x_thresholded = abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(12, 120))
 
-    # Apply each of the thresholding functions
-    gradx_l = abs_sobel_thresh(l_channel, orient='x', sobel_kernel=ksize, thresh=(25, 100))
-    gradx_s = abs_sobel_thresh(s_channel, orient='x', sobel_kernel=ksize, thresh=(10, 100))
+    y_thresholded = abs_sobel_thresh(img, orient='y', sobel_kernel=3, thresh=(25, 100))
 
 
-    combined = np.zeros_like(gradx_s)
-    combined[((gradx_l == 1) | (gradx_s == 1)) & (light_mask == 1)] = 1
-    return combined
+    hls_thresholded = hls_thresh(img, thresh=(100, 255))
+
+    hsv_thresholded = hsv_thresh(img, thresh=(50, 255))
 
 
+    dir_thresholded = dir_thresh(img, sobel_kernel=15, thresh=(.7, 1.2))
+
+    white_lane = find_white_lane(img, thresh =(103, 193) )
+
+    mag_thresholded = mag_thresh(img, sobel_kernel=3, mag_thresh=(30, 100))
+
+
+
+    binary_output = np.zeros_like(dir_thresholded)
+    binary_output[((hsv_thresholded == 1) & (hls_thresholded == 1)) | ((x_thresholded == 1) & (y_thresholded == 1))  ] = 1
+
+
+    return binary_output
+
+
+test_img = cv2.imread('test_images/test5.jpg')
+output = image_threshold(test_img)

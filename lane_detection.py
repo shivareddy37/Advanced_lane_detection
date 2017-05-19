@@ -142,8 +142,8 @@ def process(frame):
 
     text = 'curvature radius: {0} m. '.format((int(left_curverad) + int(right_curverad)) / 2)
     text2 = 'distance from center: {0} m. '.format((np.math.ceil(abs(center_calc) * 100) / 100))
-    cv2.putText(result, text, (25, 75), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 0), 2, cv2.LINE_AA)
-    cv2.putText(result, text2, (25, 120), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 0), 2, cv2.LINE_AA)
+    cv2.putText(result, text, (25, 75), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.putText(result, text2, (25, 120), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA)
 
 
 
@@ -153,8 +153,8 @@ def process(frame):
 
 
 cam_mat, dist_coff =  utils.camera_calibration()
-
-# test_img = cv2.imread('test_images/test3.jpg')lane_curvature and dist130
+#
+# test_img = cv2.imread('test_images/test5.jpg')
 # output = process(test_img)
 # cv2.imwrite('final_output.png', output)
 
