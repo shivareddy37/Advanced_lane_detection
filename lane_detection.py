@@ -6,19 +6,19 @@ import matplotlib.image as mpimage
 from moviepy.editor import VideoFileClip
 
 # constants for lanes ,US standard
-YM_PER_PIX = 30/720 # meters per pixel in y dimension
-XM_PER_PIX = 3.7/700 # meters per pixel in x dimension
+YM_PER_PIX = 3/72 # meters per pixel in y dimension
+XM_PER_PIX = 3.7/660 # meters per pixel in x dimension
 
 
-def lane_curvature(leftx, lefty, rightx, righty):
-    left_fit_cr = np.polyfit(lefty * YM_PER_PIX, leftx * XM_PER_PIX, 2)
-    right_fit_cr = np.polyfit(righty * YM_PER_PIX, rightx * XM_PER_PIX, 2)
+def lane_curvature(left_fit, right_fit):
+    y_eval = 700
 
-    left_curve_rad = ((1 + (2 * left_fit_cr[0] * np.max(lefty) + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
-        2 * left_fit_cr[0])
-    right_curve_rad = ((1 + (2 * right_fit_cr[0] * np.max(lefty) + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
-        2 * right_fit_cr[0])
-    return left_curve_rad, right_curve_rad
+
+    y1 = (2 * left_fit[0] * y_eval + left_fit[1]) * XM_PER_PIX / YM_PER_PIX
+    y2 = 2 * left_fit[0] * XM_PER_PIX / (YM_PER_PIX * YM_PER_PIX)
+
+    curvature = ((1 + y1 * y1) ** (1.5)) / np.absolute(y2)
+    return curvature
 
 
 def dist_from_center(frame, left_fit, right_fit):
@@ -124,7 +124,7 @@ def process(frame):
 
     # calulation the lane curvature and distance from center
 
-    left_curverad, right_curverad = lane_curvature(leftx, lefty, rightx, righty)
+    radius_of_curvature = lane_curvature(left_fit, right_fit)
     center_calc = dist_from_center(frame, left_fitx, right_fitx)
 
     warp_zero = np.zeros_like(thresh_img).astype(np.uint8)
@@ -139,13 +139,14 @@ def process(frame):
     newwarp = cv2.warpPerspective(color_warp, inv_trans_mat, (frame.shape[1], frame.shape[0]))
 
     result = cv2.addWeighted(frame, 1, newwarp, 0.3, 0)
-
-    text = 'curvature radius: {0} m. '.format((int(left_curverad) + int(right_curverad)) / 2)
-    text2 = 'distance from center: {0} m. '.format((np.math.ceil(abs(center_calc) * 100) / 100))
-    cv2.putText(result, text, (25, 75), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA)
-    cv2.putText(result, text2, (25, 120), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA)
-
-
+    cv2.putText(result, 'Radius of Curvature: %.2fm' % radius_of_curvature, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                (255, 255, 255), 2)
+    if center_calc < 0:
+        text = 'left'
+    else:
+        text = 'right'
+    cv2.putText(result, 'Distance From Center: %.2fm %s' % (np.absolute(center_calc), text), (20, 80),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
     return result
 
