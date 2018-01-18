@@ -1,4 +1,6 @@
 ﻿# Advanced_lane_detection
+
+The project is done as part of Udacity self Driving Car Nano Degree Program.
 Finding lane line in real video  in different lane and external conditions.
 
 The following steps are performed 
